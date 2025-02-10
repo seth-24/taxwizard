@@ -56,46 +56,56 @@ export class DatabaseStorage implements IStorage {
   };
 
   async calculateTax(calculation: InsertTaxCalculation) {
-    const income = parseFloat(calculation.income);
-    const standardDeduction = parseFloat(calculation.standardDeduction);
-    const additionalDeductions = calculation.additionalDeductions ? parseFloat(calculation.additionalDeductions) : 0;
+    try {
+      const income = Number(calculation.income);
+      const standardDeduction = Number(calculation.standardDeduction);
+      const additionalDeductions = calculation.additionalDeductions ? Number(calculation.additionalDeductions) : 0;
 
-    const taxableIncome = income - standardDeduction - additionalDeductions;
-    const brackets = this.federalBrackets[calculation.filingStatus as keyof typeof this.federalBrackets];
+      const taxableIncome = Math.max(0, income - standardDeduction - additionalDeductions);
+      const brackets = this.federalBrackets[calculation.filingStatus as keyof typeof this.federalBrackets];
 
-    let federalTax = 0;
-    let remainingIncome = taxableIncome;
+      let federalTax = 0;
+      let remainingIncome = taxableIncome;
 
-    for (const bracket of brackets) {
-      const taxableAmount = Math.min(
-        Math.max(0, remainingIncome),
-        bracket.max - bracket.min
-      );
-      federalTax += taxableAmount * bracket.rate;
-      remainingIncome -= taxableAmount;
-      if (remainingIncome <= 0) break;
+      for (const bracket of brackets) {
+        const taxableAmount = Math.min(
+          Math.max(0, remainingIncome),
+          bracket.max - bracket.min
+        );
+        federalTax += taxableAmount * bracket.rate;
+        remainingIncome -= taxableAmount;
+        if (remainingIncome <= 0) break;
+      }
+
+      const stateTax = taxableIncome * this.stateTaxRates[calculation.state];
+      const totalTax = federalTax + stateTax;
+      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
+
+      // Insert calculation record into database
+      const [result] = await db.insert(taxCalculations)
+        .values({
+          income: String(income),
+          filingStatus: calculation.filingStatus,
+          state: calculation.state,
+          standardDeduction: String(standardDeduction),
+          additionalDeductions: String(additionalDeductions),
+        })
+        .returning();
+
+      if (!result) {
+        throw new Error("Failed to save calculation");
+      }
+
+      return {
+        ...result,
+        federalTax,
+        stateTax,
+        effectiveRate
+      };
+    } catch (error) {
+      console.error('Tax calculation error:', error);
+      throw new Error('Failed to calculate taxes. Please try again.');
     }
-
-    const stateTax = taxableIncome * this.stateTaxRates[calculation.state];
-    const totalTax = federalTax + stateTax;
-    const effectiveRate = (totalTax / income) * 100;
-
-    const [result] = await db.insert(taxCalculations)
-      .values({
-        income: income.toFixed(2),
-        filingStatus: calculation.filingStatus,
-        state: calculation.state,
-        standardDeduction: standardDeduction.toFixed(2),
-        additionalDeductions: additionalDeductions.toFixed(2)
-      })
-      .returning();
-
-    return {
-      ...result,
-      federalTax,
-      stateTax,
-      effectiveRate
-    };
   }
 
   async getTaxBrackets(filingStatus: string) {
@@ -103,11 +113,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCalculationHistory(): Promise<TaxCalculation[]> {
-    return await db
-      .select()
-      .from(taxCalculations)
-      .orderBy(desc(taxCalculations.calculatedAt))
-      .limit(10);
+    try {
+      return await db
+        .select()
+        .from(taxCalculations)
+        .orderBy(desc(taxCalculations.calculatedAt))
+        .limit(10);
+    } catch (error) {
+      console.error('Error fetching calculation history:', error);
+      return [];
+    }
   }
 }
 

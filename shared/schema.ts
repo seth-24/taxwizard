@@ -12,10 +12,11 @@ export const taxCalculations = pgTable("tax_calculations", {
   calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
 });
 
-export const insertTaxCalculationSchema = createInsertSchema(taxCalculations).omit({ 
-  id: true,
-  calculatedAt: true 
-});
+export const insertTaxCalculationSchema = createInsertSchema(taxCalculations)
+  .omit({ 
+    id: true,
+    calculatedAt: true 
+  });
 
 export const filingStatusEnum = z.enum(["single", "married", "headOfHousehold"]);
 export const stateEnum = z.enum([
@@ -26,12 +27,12 @@ export const stateEnum = z.enum([
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
 ]);
 
-export const taxCalculationSchema = insertTaxCalculationSchema.extend({
+export const taxCalculationSchema = z.object({
   income: z.number().min(0),
   filingStatus: filingStatusEnum,
   state: stateEnum,
   standardDeduction: z.number().min(0),
-  additionalDeductions: z.number().min(0),
+  additionalDeductions: z.number().min(0).optional().default(0),
 });
 
 export type TaxCalculation = typeof taxCalculations.$inferSelect;

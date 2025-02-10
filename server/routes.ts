@@ -7,10 +7,26 @@ import { ZodError } from "zod";
 export function registerRoutes(app: Express) {
   app.post("/api/calculate-tax", async (req, res) => {
     try {
-      const data = taxCalculationSchema.parse(req.body);
-      const result = await storage.calculateTax(data);
+      // Parse and validate the request body
+      const data = taxCalculationSchema.parse({
+        income: Number(req.body.income),
+        filingStatus: req.body.filingStatus,
+        state: req.body.state,
+        standardDeduction: Number(req.body.standardDeduction),
+        additionalDeductions: req.body.additionalDeductions ? Number(req.body.additionalDeductions) : 0,
+      });
+
+      const result = await storage.calculateTax({
+        income: String(data.income),
+        filingStatus: data.filingStatus,
+        state: data.state,
+        standardDeduction: String(data.standardDeduction),
+        additionalDeductions: data.additionalDeductions ? String(data.additionalDeductions) : null,
+      });
+
       res.json(result);
     } catch (error) {
+      console.error('Calculate tax error:', error);
       if (error instanceof ZodError) {
         res.status(400).json({ message: error.errors[0].message });
       } else {
@@ -24,6 +40,7 @@ export function registerRoutes(app: Express) {
       const brackets = await storage.getTaxBrackets(req.params.filingStatus);
       res.json(brackets);
     } catch (error) {
+      console.error('Get tax brackets error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -33,6 +50,7 @@ export function registerRoutes(app: Express) {
       const history = await storage.getCalculationHistory();
       res.json(history);
     } catch (error) {
+      console.error('Get tax history error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
