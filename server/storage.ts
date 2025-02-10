@@ -81,14 +81,20 @@ export class DatabaseStorage implements IStorage {
       const totalTax = federalTax + stateTax;
       const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
 
-      // Insert calculation record into database
+      // Generate a timestamp-based ID
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 1000);
+      const id = parseInt(`${timestamp}${randomSuffix}`.slice(0, 10));
+
+      // Insert calculation record into database with the generated ID
       const [result] = await db.insert(taxCalculations)
         .values({
+          id: id,
           income: String(income),
           filingStatus: calculation.filingStatus,
           state: calculation.state,
           standardDeduction: String(standardDeduction),
-          additionalDeductions: String(additionalDeductions),
+          additionalDeductions: calculation.additionalDeductions ? String(additionalDeductions) : "0",
         })
         .returning();
 

@@ -1,9 +1,9 @@
-import { pgTable, text, integer, decimal, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, decimal, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const taxCalculations = pgTable("tax_calculations", {
-  id: integer("id").primaryKey(),
+  id: decimal("id", { precision: 10, scale: 0 }).primaryKey().notNull(),
   income: decimal("income", { precision: 10, scale: 2 }).notNull(),
   filingStatus: text("filing_status").notNull(),
   state: text("state").notNull(),
