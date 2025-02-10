@@ -81,6 +81,7 @@
     "zod": "^3.23.8",
     "zod-validation-error": "^3.4.0"
   },
+  "homepage": "https://seth-24.github.io/taxwizard",
   "devDependencies": {
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
