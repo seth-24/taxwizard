@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import TaxResults from "./TaxResults";
 import { Calculator } from "lucide-react";
+import { statesList } from "@/lib/tax-utils";
 
 type FormData = {
   income: number;
@@ -37,7 +38,12 @@ export default function TaxCalculator() {
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const res = await apiRequest("POST", "/api/calculate-tax", data);
+      const res = await apiRequest("POST", "/api/calculate-tax", {
+        ...data,
+        income: Number(data.income),
+        standardDeduction: Number(data.standardDeduction),
+        additionalDeductions: Number(data.additionalDeductions),
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -120,10 +126,11 @@ export default function TaxCalculator() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="CA">California</SelectItem>
-                      <SelectItem value="NY">New York</SelectItem>
-                      <SelectItem value="TX">Texas</SelectItem>
-                      <SelectItem value="FL">Florida</SelectItem>
+                      {statesList.map((state) => (
+                        <SelectItem key={state.code} value={state.code}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -1,6 +1,6 @@
 import { taxCalculations, type TaxCalculation, type InsertTaxCalculation } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   calculateTax(calculation: InsertTaxCalculation): Promise<TaxCalculation & {
@@ -9,6 +9,7 @@ export interface IStorage {
     effectiveRate: number;
   }>;
   getTaxBrackets(filingStatus: string): Promise<Array<{ min: number; max: number; rate: number }>>;
+  getCalculationHistory(): Promise<TaxCalculation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -42,15 +43,20 @@ export class DatabaseStorage implements IStorage {
     ]
   };
 
-  private readonly stateTaxRates = {
-    CA: 0.0930,
-    NY: 0.0685,
-    TX: 0,
-    FL: 0
+  private readonly stateTaxRates: Record<string, number> = {
+    AL: 0.0500, AK: 0.0000, AZ: 0.0459, AR: 0.0550, CA: 0.0930, CO: 0.0455,
+    CT: 0.0699, DE: 0.0660, FL: 0.0000, GA: 0.0575, HI: 0.1100, ID: 0.0580,
+    IL: 0.0495, IN: 0.0323, IA: 0.0600, KS: 0.0570, KY: 0.0500, LA: 0.0425,
+    ME: 0.0715, MD: 0.0575, MA: 0.0500, MI: 0.0425, MN: 0.0985, MS: 0.0500,
+    MO: 0.0495, MT: 0.0675, NE: 0.0684, NV: 0.0000, NH: 0.0500, NJ: 0.1075,
+    NM: 0.0590, NY: 0.0685, NC: 0.0499, ND: 0.0290, OH: 0.0399, OK: 0.0475,
+    OR: 0.0990, PA: 0.0307, RI: 0.0599, SC: 0.0700, SD: 0.0000, TN: 0.0000,
+    TX: 0.0000, UT: 0.0495, VT: 0.0875, VA: 0.0575, WA: 0.0000, WV: 0.0650,
+    WI: 0.0765, WY: 0.0000
   };
 
   async calculateTax(calculation: InsertTaxCalculation) {
-    const taxableIncome = Number(calculation.income) - Number(calculation.standardDeduction) - Number(calculation.additionalDeductions);
+    const taxableIncome = Number(calculation.income) - Number(calculation.standardDeduction) - Number(calculation.additionalDeductions || 0);
     const brackets = this.federalBrackets[calculation.filingStatus as keyof typeof this.federalBrackets];
 
     let federalTax = 0;
@@ -66,13 +72,19 @@ export class DatabaseStorage implements IStorage {
       if (remainingIncome <= 0) break;
     }
 
-    const stateTax = taxableIncome * this.stateTaxRates[calculation.state as keyof typeof this.stateTaxRates];
+    const stateTax = taxableIncome * this.stateTaxRates[calculation.state];
     const totalTax = federalTax + stateTax;
     const effectiveRate = (totalTax / Number(calculation.income)) * 100;
 
-    // Save calculation to database
+    // Save calculation to database with proper string conversion for decimal fields
     const [result] = await db.insert(taxCalculations)
-      .values(calculation)
+      .values({
+        filingStatus: calculation.filingStatus,
+        state: calculation.state,
+        income: calculation.income.toFixed(2),
+        standardDeduction: calculation.standardDeduction.toFixed(2),
+        additionalDeductions: (calculation.additionalDeductions || 0).toFixed(2),
+      })
       .returning();
 
     return {
@@ -85,6 +97,14 @@ export class DatabaseStorage implements IStorage {
 
   async getTaxBrackets(filingStatus: string) {
     return this.federalBrackets[filingStatus as keyof typeof this.federalBrackets];
+  }
+
+  async getCalculationHistory(): Promise<TaxCalculation[]> {
+    return await db
+      .select()
+      .from(taxCalculations)
+      .orderBy(desc(taxCalculations.calculatedAt))
+      .limit(10);
   }
 }
 

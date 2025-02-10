@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { taxCalculationSchema } from "@shared/schema";
-import { fromZodError } from "zod-validation-error";
+import { ZodError } from "zod";
 
 export function registerRoutes(app: Express) {
   app.post("/api/calculate-tax", async (req, res) => {
@@ -11,8 +11,8 @@ export function registerRoutes(app: Express) {
       const result = await storage.calculateTax(data);
       res.json(result);
     } catch (error) {
-      if (error instanceof Error) {
-        res.status(400).json({ message: fromZodError(error).message });
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: error.errors[0].message });
       } else {
         res.status(500).json({ message: "Internal server error" });
       }
@@ -23,6 +23,15 @@ export function registerRoutes(app: Express) {
     try {
       const brackets = await storage.getTaxBrackets(req.params.filingStatus);
       res.json(brackets);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tax-history", async (req, res) => {
+    try {
+      const history = await storage.getCalculationHistory();
+      res.json(history);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
