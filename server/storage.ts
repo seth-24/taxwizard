@@ -56,7 +56,11 @@ export class DatabaseStorage implements IStorage {
   };
 
   async calculateTax(calculation: InsertTaxCalculation) {
-    const taxableIncome = Number(calculation.income) - Number(calculation.standardDeduction) - Number(calculation.additionalDeductions || 0);
+    const income = parseFloat(calculation.income);
+    const standardDeduction = parseFloat(calculation.standardDeduction);
+    const additionalDeductions = calculation.additionalDeductions ? parseFloat(calculation.additionalDeductions) : 0;
+
+    const taxableIncome = income - standardDeduction - additionalDeductions;
     const brackets = this.federalBrackets[calculation.filingStatus as keyof typeof this.federalBrackets];
 
     let federalTax = 0;
@@ -74,16 +78,15 @@ export class DatabaseStorage implements IStorage {
 
     const stateTax = taxableIncome * this.stateTaxRates[calculation.state];
     const totalTax = federalTax + stateTax;
-    const effectiveRate = (totalTax / Number(calculation.income)) * 100;
+    const effectiveRate = (totalTax / income) * 100;
 
-    // Save calculation to database with proper string conversion for decimal fields
     const [result] = await db.insert(taxCalculations)
       .values({
+        income: income.toFixed(2),
         filingStatus: calculation.filingStatus,
         state: calculation.state,
-        income: calculation.income.toFixed(2),
-        standardDeduction: calculation.standardDeduction.toFixed(2),
-        additionalDeductions: (calculation.additionalDeductions || 0).toFixed(2),
+        standardDeduction: standardDeduction.toFixed(2),
+        additionalDeductions: additionalDeductions.toFixed(2)
       })
       .returning();
 
@@ -96,7 +99,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaxBrackets(filingStatus: string) {
-    return this.federalBrackets[filingStatus as keyof typeof this.federalBrackets];
+    return this.federalBrackets[filingStatus as keyof typeof this.federalBrackets] || [];
   }
 
   async getCalculationHistory(): Promise<TaxCalculation[]> {

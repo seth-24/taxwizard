@@ -11,12 +11,12 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Professional Tax Calculator 2024
+              TaxPro Advisor 2024
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-6">
-              Estimate your federal and state taxes based on your income and filing status. Get professional reports and expert guidance.
+              Expert tax calculations and guidance for all U.S. states. Get accurate estimates, professional reports, and state-specific tax insights.
             </p>
             <Tabs defaultValue="calculator" className="space-y-4">
               <TabsList>
@@ -41,7 +41,7 @@ export default function Home() {
         <div className="bg-muted p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Advertisement Space</p>
           <div className="h-[120px] flex items-center justify-center border-2 border-dashed border-muted-foreground/25">
-            <p className="text-muted-foreground">Your Ad Here</p>
+            <p className="text-muted-foreground">Premium Ad Space Available</p>
           </div>
         </div>
       </div>

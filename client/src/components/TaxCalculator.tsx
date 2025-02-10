@@ -28,11 +28,11 @@ export default function TaxCalculator() {
   const form = useForm<FormData>({
     resolver: zodResolver(taxCalculationSchema),
     defaultValues: {
-      income: 0,
+      income: undefined,
       filingStatus: "single",
       state: "CA",
-      standardDeduction: 13850,
-      additionalDeductions: 0,
+      standardDeduction: undefined,
+      additionalDeductions: undefined,
     },
   });
 
@@ -42,7 +42,7 @@ export default function TaxCalculator() {
         ...data,
         income: Number(data.income),
         standardDeduction: Number(data.standardDeduction),
-        additionalDeductions: Number(data.additionalDeductions),
+        additionalDeductions: Number(data.additionalDeductions || 0),
       });
       return res.json();
     },
@@ -53,7 +53,7 @@ export default function TaxCalculator() {
         description: "Your tax estimate has been calculated successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -82,7 +82,7 @@ export default function TaxCalculator() {
                       type="number"
                       placeholder="Enter your annual income"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -140,6 +140,25 @@ export default function TaxCalculator() {
 
             <FormField
               control={form.control}
+              name="standardDeduction"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Standard Deduction</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter standard deduction"
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="additionalDeductions"
               render={({ field }) => (
                 <FormItem>
@@ -149,7 +168,7 @@ export default function TaxCalculator() {
                       type="number"
                       placeholder="Enter additional deductions"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                     />
                   </FormControl>
                   <FormMessage />
