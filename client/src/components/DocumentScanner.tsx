@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function DocumentScanner() {
   const { toast } = useToast();
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,19 +58,49 @@ export default function DocumentScanner() {
     },
   });
 
+  const checkCameraPermission = async () => {
+    try {
+      const permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      return permissionStatus.state === 'granted';
+    } catch (error) {
+      return false;
+    }
+  };
+
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" }
-      });
+      setHasRequestedPermission(true);
+      const hasPermission = await checkCameraPermission();
+
+      if (!hasPermission) {
+        toast({
+          title: "Camera Permission Required",
+          description: "Please allow camera access when prompted by your browser.",
+          variant: "default",
+        });
+      }
+
+      const constraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCameraActive(true);
       }
     } catch (err) {
+      console.error('Camera access error:', err);
       toast({
         title: "Camera Error",
-        description: "Unable to access camera. Please check permissions or try uploading a file instead.",
+        description: hasRequestedPermission
+          ? "Camera access was denied. Please enable it in your browser settings."
+          : "Unable to access camera. Please try uploading a file instead.",
         variant: "destructive",
       });
     }
@@ -79,31 +110,78 @@ export default function DocumentScanner() {
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
       setIsCameraActive(false);
     }
   };
 
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext("2d");
-      canvasRef.current.width = videoRef.current.videoWidth;
-      canvasRef.current.height = videoRef.current.videoHeight;
-      context?.drawImage(videoRef.current, 0, 0);
+      const context = canvasRef.current.getContext('2d');
+      if (!context) return;
 
-      const imageData = canvasRef.current.toDataURL("image/jpeg");
-      uploadMutation.mutate(imageData);
+      // Get the video dimensions
+      const { videoWidth, videoHeight } = videoRef.current;
+
+      // Set canvas size to match video
+      canvasRef.current.width = videoWidth;
+      canvasRef.current.height = videoHeight;
+
+      // Draw the video frame to canvas
+      context.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
+
+      try {
+        // Convert to JPEG with reduced quality for smaller file size
+        const imageData = canvasRef.current.toDataURL('image/jpeg', 0.7);
+        uploadMutation.mutate(imageData);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to capture image. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        uploadMutation.mutate(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please select an image smaller than 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        uploadMutation.mutate(reader.result);
+      }
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Failed to read file. Please try again.",
+        variant: "destructive",
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -112,7 +190,7 @@ export default function DocumentScanner() {
         <CardHeader>
           <CardTitle>Document Scanner</CardTitle>
           <CardDescription>
-            Scan and organize your tax documents
+            Scan and organize your tax documents. Align your document within the guides for best results.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -168,6 +246,7 @@ export default function DocumentScanner() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={handleFileUpload}
                 />
