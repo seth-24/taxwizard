@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaxCalculator from "@/components/TaxCalculator";
 import TaxHistory from "@/components/TaxHistory";
 import TaxGuidance from "@/components/TaxGuidance";
+import DocumentScanner from "@/components/DocumentScanner";
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
               <TabsList>
                 <TabsTrigger value="calculator">Calculator</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
                 <TabsTrigger value="guidance">Tax Guidance</TabsTrigger>
               </TabsList>
               <TabsContent value="calculator">
@@ -30,13 +32,15 @@ export default function Home() {
               <TabsContent value="history">
                 <TaxHistory />
               </TabsContent>
+              <TabsContent value="documents">
+                <DocumentScanner />
+              </TabsContent>
               <TabsContent value="guidance">
                 <TaxGuidance />
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-
         {/* Ad Space */}
         <div className="bg-muted p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Advertisement Space</p>

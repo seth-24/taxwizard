@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { taxCalculationSchema } from "@shared/schema";
+import { taxCalculationSchema, documentSchema } from "@shared/schema";
 import { ZodError } from "zod";
 
 export function registerRoutes(app: Express) {
@@ -52,6 +52,46 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error('Get tax history error:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // New document management routes
+  app.post("/api/documents", async (req, res) => {
+    try {
+      const { image } = req.body;
+      // Remove data:image/jpeg;base64, prefix
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Simple document organization logic
+      // In a real app, you'd use a proper OCR service
+      const fileName = `scan_${Date.now()}.jpg`;
+      const documentDate = new Date().toISOString();
+      const category = "tax_document"; // In real app, use AI to categorize
+      const content = "Document content would be extracted via OCR";
+
+      const document = await storage.saveDocument({
+        fileName,
+        fileType: "image/jpeg",
+        documentDate,
+        category,
+        content,
+      });
+
+      res.json(document);
+    } catch (error) {
+      console.error('Save document error:', error);
+      res.status(500).json({ message: "Failed to save document" });
+    }
+  });
+
+  app.get("/api/documents", async (req, res) => {
+    try {
+      const documents = await storage.getDocuments();
+      res.json(documents);
+    } catch (error) {
+      console.error('Get documents error:', error);
+      res.status(500).json({ message: "Failed to fetch documents" });
     }
   });
 

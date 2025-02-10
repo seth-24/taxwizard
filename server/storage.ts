@@ -1,4 +1,4 @@
-import { taxCalculations, type TaxCalculation, type InsertTaxCalculation } from "@shared/schema";
+import { taxCalculations, type TaxCalculation, type InsertTaxCalculation, documents, type Document, type InsertDocument } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -10,6 +10,8 @@ export interface IStorage {
   }>;
   getTaxBrackets(filingStatus: string): Promise<Array<{ min: number; max: number; rate: number }>>;
   getCalculationHistory(): Promise<TaxCalculation[]>;
+  saveDocument(doc: Omit<InsertDocument, "id">): Promise<Document>;
+  getDocuments(): Promise<Document[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,6 +129,47 @@ export class DatabaseStorage implements IStorage {
         .limit(10);
     } catch (error) {
       console.error('Error fetching calculation history:', error);
+      return [];
+    }
+  }
+
+  async saveDocument(doc: Omit<InsertDocument, "id">): Promise<Document> {
+    try {
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 1000);
+      const id = parseInt(`${timestamp}${randomSuffix}`.slice(0, 10));
+
+      const [document] = await db.insert(documents)
+        .values({
+          id: id,
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          documentDate: new Date(doc.documentDate),
+          category: doc.category,
+          content: doc.content,
+        })
+        .returning();
+
+      if (!document) {
+        throw new Error("Failed to save document");
+      }
+
+      return document;
+    } catch (error) {
+      console.error('Error saving document:', error);
+      throw new Error('Failed to save document. Please try again.');
+    }
+  }
+
+  async getDocuments(): Promise<Document[]> {
+    try {
+      return await db
+        .select()
+        .from(documents)
+        .orderBy(desc(documents.uploadedAt))
+        .limit(20);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
       return [];
     }
   }

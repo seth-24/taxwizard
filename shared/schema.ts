@@ -12,10 +12,26 @@ export const taxCalculations = pgTable("tax_calculations", {
   calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
 });
 
+export const documents = pgTable("documents", {
+  id: decimal("id", { precision: 10, scale: 0 }).primaryKey().notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  documentDate: timestamp("document_date").notNull(),
+  category: text("category").notNull(),
+  content: text("content").notNull(), // OCR extracted text
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
 export const insertTaxCalculationSchema = createInsertSchema(taxCalculations)
   .omit({ 
     id: true,
     calculatedAt: true 
+  });
+
+export const insertDocumentSchema = createInsertSchema(documents)
+  .omit({
+    id: true,
+    uploadedAt: true
   });
 
 export const filingStatusEnum = z.enum(["single", "married", "headOfHousehold"]);
@@ -35,7 +51,17 @@ export const taxCalculationSchema = z.object({
   additionalDeductions: z.number().min(0).optional().default(0),
 });
 
+export const documentSchema = z.object({
+  fileName: z.string(),
+  fileType: z.string(),
+  documentDate: z.string(),
+  category: z.string(),
+  content: z.string(),
+});
+
 export type TaxCalculation = typeof taxCalculations.$inferSelect;
 export type InsertTaxCalculation = z.infer<typeof insertTaxCalculationSchema>;
 export type FilingStatus = z.infer<typeof filingStatusEnum>;
 export type State = z.infer<typeof stateEnum>;
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
