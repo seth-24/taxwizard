@@ -1,4 +1,6 @@
 import { taxCalculations, type TaxCalculation, type InsertTaxCalculation } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   calculateTax(calculation: InsertTaxCalculation): Promise<TaxCalculation & {
@@ -9,8 +11,7 @@ export interface IStorage {
   getTaxBrackets(filingStatus: string): Promise<Array<{ min: number; max: number; rate: number }>>;
 }
 
-export class MemStorage implements IStorage {
-  private currentId = 1;
+export class DatabaseStorage implements IStorage {
   private readonly federalBrackets = {
     single: [
       { min: 0, max: 11000, rate: 0.10 },
@@ -51,10 +52,10 @@ export class MemStorage implements IStorage {
   async calculateTax(calculation: InsertTaxCalculation) {
     const taxableIncome = Number(calculation.income) - Number(calculation.standardDeduction) - Number(calculation.additionalDeductions);
     const brackets = this.federalBrackets[calculation.filingStatus as keyof typeof this.federalBrackets];
-    
+
     let federalTax = 0;
     let remainingIncome = taxableIncome;
-    
+
     for (const bracket of brackets) {
       const taxableAmount = Math.min(
         Math.max(0, remainingIncome),
@@ -69,9 +70,13 @@ export class MemStorage implements IStorage {
     const totalTax = federalTax + stateTax;
     const effectiveRate = (totalTax / Number(calculation.income)) * 100;
 
+    // Save calculation to database
+    const [result] = await db.insert(taxCalculations)
+      .values(calculation)
+      .returning();
+
     return {
-      id: this.currentId++,
-      ...calculation,
+      ...result,
       federalTax,
       stateTax,
       effectiveRate
@@ -83,4 +88,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
